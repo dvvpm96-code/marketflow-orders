@@ -1,0 +1,31 @@
+[Unit]
+Description=Marketflow private order desk
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=marketflow
+Group=marketflow
+WorkingDirectory=/opt/marketflow/app
+Environment=NODE_ENV=production
+Environment=MARKETFLOW_CONFIG=/var/lib/marketflow/config.json
+Environment=PORT=3000
+ExecStart=/opt/marketflow/runtime/bin/node /opt/marketflow/app/server/server.mjs
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/marketflow
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,42 @@
+name: Verify and package Marketflow
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24.22.2'
+      - name: Install pinned package manager
+        run: npm install --global pnpm@11.25.0
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Check TypeScript
+        run: pnpm typecheck
+      - name: Verify core, API and two independent device sessions
+        run: pnpm test
+      - name: Check Ubuntu installer
+        run: |
+          bash -n selfhost/deploy/install.sh
+          bash -n selfhost/deploy/backup.sh
+          bash work/selfhost-release/install.sh --dry-run
+          bash work/selfhost-release/install.sh --dry-run --domain orders.example.com
+      - name: Package server application
+        run: tar -czf marketflow-ubuntu.tar.gz -C work/selfhost-release .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: marketflow-ubuntu
+          path: marketflow-ubuntu.tar.gz
+          retention-days: 7
+          if-no-files-found: error

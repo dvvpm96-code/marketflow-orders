@@ -1,0 +1,5 @@
+function encode(bytes:Uint8Array){return btoa(String.fromCharCode(...bytes));}
+function decode(value:string){return Uint8Array.from(atob(value),c=>c.charCodeAt(0));}
+async function key(master:string){if(!/^[a-f0-9]{64}$/.test(master))throw new Error('Защищённое хранилище ключей ещё не настроено');return crypto.subtle.importKey('raw',Uint8Array.from(master.match(/.{2}/g)!,x=>parseInt(x,16)),{name:'AES-GCM'},false,['encrypt','decrypt']);}
+export async function encrypt(value:unknown,master:string,context:string){const iv=crypto.getRandomValues(new Uint8Array(12));const data=await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:new TextEncoder().encode(context)},await key(master),new TextEncoder().encode(JSON.stringify(value)));return `${encode(iv)}.${encode(new Uint8Array(data))}`;}
+export async function decrypt(value:string,master:string,context:string){const [iv,data]=value.split('.');const clear=await crypto.subtle.decrypt({name:'AES-GCM',iv:decode(iv),additionalData:new TextEncoder().encode(context)},await key(master),decode(data));return JSON.parse(new TextDecoder().decode(clear));}

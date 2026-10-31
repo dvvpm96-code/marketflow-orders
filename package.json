@@ -16,7 +16,8 @@
     "test:core": "node tests/scenarios.mjs",
     "test:api": "node tests/api-scenarios.mjs",
     "test:server": "node tests/selfhost-scenarios.mjs",
-    "test": "node tests/scenarios.mjs && node tests/api-scenarios.mjs && node selfhost/build.mjs && node tests/selfhost-scenarios.mjs",
+    "test:deploy": "node tests/deploy-scenarios.mjs",
+    "test": "node tests/scenarios.mjs && node tests/api-scenarios.mjs && node selfhost/build.mjs && node tests/selfhost-scenarios.mjs && node tests/deploy-scenarios.mjs",
     "build:sites": "node scripts/run-framework.mjs build"
   },
   "dependencies": {

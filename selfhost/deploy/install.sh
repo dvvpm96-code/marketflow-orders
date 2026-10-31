@@ -5,11 +5,15 @@ source_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 domain=''
 username='dmitry'
 dry_run=0
+password_stdin=0
+install_dependencies=0
 while (( $# )); do
   case "$1" in
     --domain) domain="${2:?Укажите домен}"; shift 2 ;;
     --username) username="${2:?Укажите логин}"; shift 2 ;;
     --dry-run) dry_run=1; shift ;;
+    --password-stdin) password_stdin=1; shift ;;
+    --install-dependencies) install_dependencies=1; shift ;;
     *) echo "Неизвестный параметр: $1" >&2; exit 1 ;;
   esac
 done
@@ -29,22 +33,36 @@ fi
 (( EUID == 0 )) || { echo 'Запустите через sudo или от root' >&2; exit 1; }
 [[ -d /run/systemd/system ]] || { echo 'Требуется Ubuntu с systemd' >&2; exit 1; }
 [[ ! -e /opt/marketflow && ! -e /var/lib/marketflow ]] || { echo 'Установка уже существует. Данные не перезаписаны.' >&2; exit 1; }
-command -v python3 >/dev/null || { echo 'Нужен python3: apt-get install python3' >&2; exit 1; }
-command -v curl >/dev/null || { echo 'Нужен curl: apt-get install curl ca-certificates' >&2; exit 1; }
-command -v xz >/dev/null || { echo 'Нужен xz: apt-get install xz-utils' >&2; exit 1; }
-command -v sha256sum >/dev/null || { echo 'Нужен sha256sum' >&2; exit 1; }
 if ss -H -ltn 'sport = :3000' | read -r _; then echo 'Порт 3000 уже занят. Существующий сервис не изменён.' >&2; exit 1; fi
 if [[ -n "$domain" ]]; then
   if command -v caddy >/dev/null || [[ -e /etc/caddy/Caddyfile ]]; then echo 'Caddy уже установлен. Для сохранения текущих сайтов остановлено; настройте отдельный reverse proxy по README.' >&2; exit 1; fi
   if ss -H -ltn '( sport = :80 or sport = :443 )' | read -r _; then echo '80/443 уже заняты. Для сохранения текущих сайтов остановлено; настройте существующий reverse proxy по README.' >&2; exit 1; fi
 fi
 case "$(uname -m)" in x86_64) node_arch=x64; node_sha256=48cc0e21e048790e54c0cf5749c2725005313d652651c40b7a21feb9697aaf75 ;; aarch64|arm64) node_arch=arm64; node_sha256=eb187837a2230d4047161ac0be008584e16b46f726e9c9490ee35dc6b17d9ba8 ;; *) echo 'Поддерживаются amd64 и arm64' >&2; exit 1 ;; esac
-printf 'Создайте пароль для входа в Поток (не менее 12 символов): ' >/dev/tty
-IFS= read -r -s marketflow_password </dev/tty
-printf '\nПовторите пароль: ' >/dev/tty
-IFS= read -r -s marketflow_repeat </dev/tty
-printf '\n' >/dev/tty
-[[ "$marketflow_password" == "$marketflow_repeat" && ${#marketflow_password} -ge 12 ]] || { unset marketflow_password marketflow_repeat; echo 'Пароли не совпадают или слишком короткие' >&2; exit 1; }
+if (( password_stdin )); then
+  IFS= read -r marketflow_password || [[ -n "$marketflow_password" ]]
+  marketflow_extra=''
+  if IFS= read -r marketflow_extra || [[ -n "$marketflow_extra" ]]; then
+    unset marketflow_password marketflow_extra
+    echo 'Пароль должен занимать одну строку' >&2; exit 1
+  fi
+  marketflow_repeat="$marketflow_password"
+else
+  printf 'Создайте пароль для входа в Поток (12–1024 символа): ' >/dev/tty
+  IFS= read -r -s marketflow_password </dev/tty
+  printf '\nПовторите пароль: ' >/dev/tty
+  IFS= read -r -s marketflow_repeat </dev/tty
+  printf '\n' >/dev/tty
+fi
+[[ "$marketflow_password" == "$marketflow_repeat" && ${#marketflow_password} -ge 12 && ${#marketflow_password} -le 1024 && "$marketflow_password" != *$'\r'* ]] || { unset marketflow_password marketflow_repeat; echo 'Пароли не совпадают или длина вне диапазона 12–1024' >&2; exit 1; }
+if (( install_dependencies )); then
+  apt-get update
+  DEBIAN_FRONTEND=noninteractive apt-get install -y curl ca-certificates python3 xz-utils
+fi
+command -v python3 >/dev/null || { echo 'Нужен python3: apt-get install python3' >&2; exit 1; }
+command -v curl >/dev/null || { echo 'Нужен curl: apt-get install curl ca-certificates' >&2; exit 1; }
+command -v xz >/dev/null || { echo 'Нужен xz: apt-get install xz-utils' >&2; exit 1; }
+command -v sha256sum >/dev/null || { echo 'Нужен sha256sum' >&2; exit 1; }
 tmp_dir="$(mktemp -d /var/tmp/marketflow-install.XXXXXXXX)"
 trap 'rm -rf -- "$tmp_dir"; unset marketflow_password marketflow_repeat' EXIT
 node_version='24.22.2'

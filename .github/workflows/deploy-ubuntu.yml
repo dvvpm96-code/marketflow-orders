@@ -1,0 +1,77 @@
+name: Install Marketflow on Ubuntu
+run-name: Install Marketflow · ${{ inputs.domain }}
+on:
+  workflow_dispatch:
+    inputs:
+      domain:
+        description: 'Домен кабинета, например orders.example.ru. DNS должен указывать на сервер.'
+        required: true
+        type: string
+      username:
+        description: 'Логин для кабинета (не GitHub и не ChatGPT)'
+        required: true
+        default: dmitry
+        type: string
+      confirmation:
+        description: 'Введите INSTALL для первой установки. Существующая установка не перезаписывается.'
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: marketflow-production-install
+  cancel-in-progress: false
+jobs:
+  install:
+    if: github.ref == 'refs/heads/main' && inputs.confirmation == 'INSTALL'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    environment:
+      name: production
+      url: ${{ steps.install.outputs.site_url }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check deployment configuration without connecting
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
+          SERVER_KNOWN_HOSTS: ${{ secrets.SERVER_KNOWN_HOSTS }}
+          CABINET_PASSWORD: ${{ secrets.CABINET_PASSWORD }}
+          SERVER_PORT: ${{ vars.SERVER_PORT || '22' }}
+          SITE_DOMAIN: ${{ inputs.domain }}
+          CABINET_USERNAME: ${{ inputs.username }}
+        run: bash selfhost/deploy/github-install.sh --check
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24.22.2'
+      - name: Install pinned package manager and locked dependencies
+        run: |
+          npm install --global pnpm@11.25.0
+          pnpm install --frozen-lockfile
+      - name: Verify application and deployment scenarios
+        run: |
+          pnpm typecheck
+          pnpm test
+      - name: Package verified server application
+        run: tar -czf marketflow-ubuntu.tar.gz -C work/selfhost-release .
+      - name: Install SSH password transport when selected
+        env:
+          SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
+        run: |
+          if [[ -n "$SERVER_PASSWORD" ]]; then
+            sudo apt-get update
+            sudo apt-get install -y sshpass
+          fi
+      - name: Install and verify HTTPS login page
+        id: install
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
+          SERVER_KNOWN_HOSTS: ${{ secrets.SERVER_KNOWN_HOSTS }}
+          CABINET_PASSWORD: ${{ secrets.CABINET_PASSWORD }}
+          SERVER_PORT: ${{ vars.SERVER_PORT || '22' }}
+          SITE_DOMAIN: ${{ inputs.domain }}
+          CABINET_USERNAME: ${{ inputs.username }}
+        run: bash selfhost/deploy/github-install.sh marketflow-ubuntu.tar.gz

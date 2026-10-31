@@ -30,8 +30,10 @@ jobs:
         run: |
           bash -n selfhost/deploy/install.sh
           bash -n selfhost/deploy/backup.sh
+          bash -n selfhost/deploy/github-install.sh
           bash work/selfhost-release/install.sh --dry-run
           bash work/selfhost-release/install.sh --dry-run --domain orders.example.com
+          bash work/selfhost-release/install.sh --dry-run --password-stdin --install-dependencies --domain orders.example.com
       - name: Package server application
         run: tar -czf marketflow-ubuntu.tar.gz -C work/selfhost-release .
       - uses: actions/upload-artifact@v4

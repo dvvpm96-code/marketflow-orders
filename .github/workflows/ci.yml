@@ -36,7 +36,7 @@ jobs:
           bash work/selfhost-release/install.sh --dry-run --password-stdin --install-dependencies --domain orders.example.com
       - name: Package server application
         run: tar -czf marketflow-ubuntu.tar.gz -C work/selfhost-release .
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7.0.2
         with:
           name: marketflow-ubuntu
           path: marketflow-ubuntu.tar.gz

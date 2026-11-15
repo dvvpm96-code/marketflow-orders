@@ -1,0 +1,50 @@
+name: Install MP Manager on existing server
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'manager/deploy/install-on-server.sh'
+      - '.github/workflows/install-mp-manager.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: install-mp-manager
+  cancel-in-progress: false
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check SSH configuration
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          SERVER_KNOWN_HOSTS: ${{ secrets.SERVER_KNOWN_HOSTS }}
+          SERVER_PORT: ${{ vars.SERVER_PORT || '22' }}
+        run: |
+          set -Eeuo pipefail
+          set +x
+          test -n "$SERVER_HOST" || { echo "::error::В GitHub не задан SERVER_HOST"; exit 1; }
+          test -n "$SERVER_SSH_KEY" || { echo "::error::В GitHub не задан SERVER_SSH_KEY (требуется ключ пользователя deploy)"; exit 1; }
+          test -n "$SERVER_KNOWN_HOSTS" || { echo "::error::В GitHub не задан SERVER_KNOWN_HOSTS"; exit 1; }
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          printf '%s\n' "$SERVER_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          printf '%s\n' "$SERVER_SSH_KEY" > "$HOME/.ssh/id_ed25519"
+          chmod 600 "$HOME/.ssh/known_hosts" "$HOME/.ssh/id_ed25519"
+          ssh-keygen -F "$SERVER_HOST" -f "$HOME/.ssh/known_hosts" >/dev/null || { echo "::error::Нет подтверждённого SSH host key"; exit 1; }
+          echo "SERVER_PORT=$SERVER_PORT" >> "$GITHUB_ENV"
+          echo "SERVER_HOST=$SERVER_HOST" >> "$GITHUB_ENV"
+      - name: Install isolated MP Manager and probe Ozon Seller API
+        run: |
+          set -Eeuo pipefail
+          set +x
+          ssh -T -i "$HOME/.ssh/id_ed25519" -p "$SERVER_PORT" \
+            -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o BatchMode=yes \
+            -o ConnectTimeout=12 -o ServerAliveInterval=10 \
+            "deploy@$SERVER_HOST" \
+            'set -Eeuo pipefail; tmp="$(mktemp -d)"; trap '\''rm -rf "$tmp"'\'' EXIT; git clone --quiet --depth 1 https://github.com/dvvpm96-code/marketflow-orders.git "$tmp/repo"; bash "$tmp/repo/manager/deploy/install-on-server.sh"'
+      - name: Remove temporary SSH key from runner
+        if: always()
+        run: rm -f "$HOME/.ssh/id_ed25519"

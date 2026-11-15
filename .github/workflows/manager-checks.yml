@@ -26,9 +26,10 @@ jobs:
       - name: Check JavaScript syntax
         run: |
           node --check manager/core.mjs
+          node --check manager/pilot.mjs
           node --check manager/server.mjs
           node --check manager/web/app.js
       - name: Check installer shell syntax
         run: bash -n manager/deploy/install-on-server.sh
       - name: Run manager tests (no marketplace credentials)
-        run: node --test manager/manager.test.mjs
+        run: node --test manager/manager.test.mjs manager/pilot.test.mjs

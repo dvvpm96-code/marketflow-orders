@@ -13,6 +13,7 @@ const bindHost=process.env.MP_BIND_HOST || '127.0.0.1';
 const clientId=process.env.OZON_CLIENT_ID || '';
 const passwordFile=process.env.MP_ADMIN_PASSWORD_FILE || '';
 const keyFile=process.env.OZON_API_KEY_FILE || '';
+const approvalsFile=process.env.MP_APPROVALS_FILE || path.join(root,'manager-approvals.json');
 const sessionKey=randomBytes(32);
 const loginAttempts=new Map();
 if(!passwordFile || !/^https?:\/\/[^/]+$/.test(origin) || !Number.isInteger(port) || port<1024 || port>65535 || !/^(?:127\.0\.0\.1|100\.(?:\d{1,3}\.){2}\d{1,3})$/.test(bindHost)) throw new Error('Configure MP_ADMIN_PASSWORD_FILE, MP_PUBLIC_ORIGIN, MP_PORT, MP_BIND_HOST first');
@@ -49,11 +50,11 @@ async function body(req,max=8192) {
 }
 function error(res,code,message){return json(res,code,{ok:false,error:message});}
 async function approvalsRead(){
-  try{const data=JSON.parse(await readFile(path.join(root,'manager-approvals.json'),'utf8'));return data&&typeof data==='object'&&!Array.isArray(data)?data:{};}
+  try{const data=JSON.parse(await readFile(approvalsFile,'utf8'));return data&&typeof data==='object'&&!Array.isArray(data)?data:{};}
   catch(e){if(e.code==='ENOENT')return {};throw e;}
 }
 async function approvalsSave(data){
-  const target=path.join(root,'manager-approvals.json'),temp=target+'.'+randomBytes(6).toString('hex')+'.tmp';
+  const target=approvalsFile,temp=target+'.'+randomBytes(6).toString('hex')+'.tmp';
   await writeFile(temp,JSON.stringify(data,null,2),{flag:'wx',mode:0o600});
   await rename(temp,target);
 }

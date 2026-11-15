@@ -9,12 +9,14 @@ const directory=path.dirname(fileURLToPath(import.meta.url));
 const root=path.resolve(process.env.MP_PROJECT_DIR || DEFAULT_PROJECT);
 const origin=process.env.MP_PUBLIC_ORIGIN || '';
 const port=Number(process.env.MP_PORT || 8777);
+const bindHost=process.env.MP_BIND_HOST || '127.0.0.1';
 const clientId=process.env.OZON_CLIENT_ID || '';
 const passwordFile=process.env.MP_ADMIN_PASSWORD_FILE || '';
 const keyFile=process.env.OZON_API_KEY_FILE || '';
+const approvalsFile=process.env.MP_APPROVALS_FILE || path.join(root,'manager-approvals.json');
 const sessionKey=randomBytes(32);
 const loginAttempts=new Map();
-if(!passwordFile || !/^https?:\/\/[^/]+$/.test(origin) || !Number.isInteger(port) || port<1024 || port>65535) throw new Error('Configure MP_ADMIN_PASSWORD_FILE, MP_PUBLIC_ORIGIN, MP_PORT first');
+if(!passwordFile || !/^https?:\/\/[^/]+$/.test(origin) || !Number.isInteger(port) || port<1024 || port>65535 || !/^(?:127\.0\.0\.1|100\.(?:\d{1,3}\.){2}\d{1,3})$/.test(bindHost)) throw new Error('Configure MP_ADMIN_PASSWORD_FILE, MP_PUBLIC_ORIGIN, MP_PORT, MP_BIND_HOST first');
 const cookieSecure=origin.startsWith('https://') ? '; Secure' : '';
 const headers={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','X-Frame-Options':'DENY','Referrer-Policy':'no-referrer','Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'"};
 function send(res,status,payload,extra={}) {
@@ -48,11 +50,11 @@ async function body(req,max=8192) {
 }
 function error(res,code,message){return json(res,code,{ok:false,error:message});}
 async function approvalsRead(){
-  try{const data=JSON.parse(await readFile(path.join(root,'manager-approvals.json'),'utf8'));return data&&typeof data==='object'&&!Array.isArray(data)?data:{};}
+  try{const data=JSON.parse(await readFile(approvalsFile,'utf8'));return data&&typeof data==='object'&&!Array.isArray(data)?data:{};}
   catch(e){if(e.code==='ENOENT')return {};throw e;}
 }
 async function approvalsSave(data){
-  const target=path.join(root,'manager-approvals.json'),temp=target+'.'+randomBytes(6).toString('hex')+'.tmp';
+  const target=approvalsFile,temp=target+'.'+randomBytes(6).toString('hex')+'.tmp';
   await writeFile(temp,JSON.stringify(data,null,2),{flag:'wx',mode:0o600});
   await rename(temp,target);
 }
@@ -124,4 +126,4 @@ async function handler(req,res){
   }
 }
 export const server=http.createServer(handler);
-if(process.env.MP_SKIP_LISTEN!=='1')server.listen(port,'127.0.0.1',()=>console.log('MP Manager on 127.0.0.1:'+port));
+if(process.env.MP_SKIP_LISTEN!=='1')server.listen(port,bindHost,()=>console.log('MP Manager service started on configured interface'));

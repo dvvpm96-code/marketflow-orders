@@ -4,6 +4,7 @@ import {fileURLToPath} from 'node:url';
 import {readFile, writeFile, rename} from 'node:fs/promises';
 import {randomBytes, createHmac, scryptSync, timingSafeEqual} from 'node:crypto';
 import {buildSnapshot, checkOzon, applyApproval, DEFAULT_PROJECT} from './core.mjs';
+import {buildOzonPilot} from './pilot.mjs';
 
 const directory=path.dirname(fileURLToPath(import.meta.url));
 const root=path.resolve(process.env.MP_PROJECT_DIR || DEFAULT_PROJECT);
@@ -97,6 +98,9 @@ async function handler(req,res){
     if(req.method==='GET'&&p==='/api/snapshot'){
       const [snapshot,approvals]=await Promise.all([buildSnapshot(root),approvalsRead()]);
       return json(res,200,{...snapshot,approvals,ozon:{clientIdConfigured:Boolean(clientId),keyFileConfigured:Boolean(keyFile),status:'Не проверен'}});
+    }
+    if(req.method==='GET'&&p==='/api/ozon/pilot'){
+      return json(res,200,await buildOzonPilot(root));
     }
     if(req.method==='POST'&&p==='/api/ozon/check'){
       const data=JSON.parse(await body(req));

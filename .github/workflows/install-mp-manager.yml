@@ -33,10 +33,13 @@ jobs:
           printf '%s\n' "$SERVER_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
           printf '%s\n' "$SERVER_SSH_KEY" > "$HOME/.ssh/id_ed25519"
           chmod 600 "$HOME/.ssh/known_hosts" "$HOME/.ssh/id_ed25519"
-          ssh-keygen -F "$SERVER_HOST" -f "$HOME/.ssh/known_hosts" >/dev/null || { echo "::error::Нет подтверждённого SSH host key"; exit 1; }
-          echo "SERVER_PORT=$SERVER_PORT" >> "$GITHUB_ENV"
-          echo "SERVER_HOST=$SERVER_HOST" >> "$GITHUB_ENV"
+          lookup="$SERVER_HOST"
+          if [[ "$SERVER_PORT" != "22" ]]; then lookup="[$SERVER_HOST]:$SERVER_PORT"; fi
+          ssh-keygen -F "$lookup" -f "$HOME/.ssh/known_hosts" >/dev/null || { echo "::error::Нет подтверждённого SSH host key"; exit 1; }
       - name: Install isolated MP Manager and probe Ozon Seller API
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_PORT: ${{ vars.SERVER_PORT || '22' }}
         run: |
           set -Eeuo pipefail
           set +x

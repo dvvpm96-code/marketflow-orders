@@ -18,7 +18,7 @@ const sessionKey=randomBytes(32);
 const loginAttempts=new Map();
 if(!passwordFile || !/^https?:\/\/[^/]+$/.test(origin) || !Number.isInteger(port) || port<1024 || port>65535 || !/^(?:127\.0\.0\.1|100\.(?:\d{1,3}\.){2}\d{1,3})$/.test(bindHost)) throw new Error('Configure MP_ADMIN_PASSWORD_FILE, MP_PUBLIC_ORIGIN, MP_PORT, MP_BIND_HOST first');
 const cookieSecure=origin.startsWith('https://') ? '; Secure' : '';
-const headers={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','X-Frame-Options':'DENY','Referrer-Policy':'no-referrer','Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'"};
+const headers={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','X-Frame-Options':'DENY','Referrer-Policy':'same-origin','Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'"};
 function send(res,status,payload,extra={}) {
   res.writeHead(status,{...headers,...extra});
   res.end(Buffer.isBuffer(payload)||typeof payload==='string'?payload:JSON.stringify(payload));

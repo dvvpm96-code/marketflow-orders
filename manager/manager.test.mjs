@@ -79,6 +79,7 @@ test('HTTP authentication, CSRF, approvals and missing key configuration',async(
     const unauth=await fetch(base+'/api/snapshot',{redirect:'manual'});
     assert.equal(unauth.status,401);
     const page=await fetch(base+'/login');assert.equal(page.status,200);
+    assert.equal(page.headers.get('referrer-policy'),'same-origin');
     const bad=await fetch(base+'/login',{method:'POST',redirect:'manual',headers:{'Origin':base,'Content-Type':'application/x-www-form-urlencoded'},body:'password=incorrect'});
     assert.equal(bad.status,401);
     const ok=await fetch(base+'/login',{method:'POST',redirect:'manual',headers:{Origin:base,'Content-Type':'application/x-www-form-urlencoded'},body:'password=some-long-test-password'});

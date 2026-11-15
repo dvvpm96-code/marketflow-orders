@@ -1,4 +1,4 @@
-const state={data:null,view:'overview',query:'',selected:null,ozonResult:null,busy:false};
+const state={data:null,pilot:null,view:'overview',query:'',selected:null,ozonResult:null,busy:false};
 const $=id=>document.getElementById(id);
 function el(tag,cls,text){
   const node=document.createElement(tag);
@@ -57,7 +57,7 @@ async function request(url,body){
   return result;
 }
 async function refresh(){
-  try{state.data=await request('/api/snapshot');render();}
+  try{state.data=await request('/api/snapshot');render();if(state.view==='pilot')loadPilot();}
   catch(e){const m=$('main');m.replaceChildren(note('Не удалось прочитать данные: '+e.message));}
 }
 function overview(container){
@@ -78,6 +78,68 @@ function overview(container){
   const next=panel('Первые позиции на проверку');
   const rows=d.cards.slice(0,5).map(c=>[productCell(c),rub(c.price),badge(c.readiness,statusClass(c.readiness)),button('Открыть',()=>{state.view='cards';state.selected=c.id;state.query='';render();})]);
   next.append(table(['Товар','Цена сайта','Содержание','Действие'],rows));container.append(next);
+}
+async function loadPilot(){
+  try{state.pilot=await request('/api/ozon/pilot');if(state.view==='pilot')render();}
+  catch(e){toast('Не удалось загрузить подготовку Ozon: '+e.message);}
+}
+function pilotView(container){
+  container.append(title('Первая выгрузка Ozon','Три пилотных товара: сверка с учётом, готовность карточек и блокеры запуска.'));
+  container.append(note('Публикация заблокирована. Этот раздел ничего не отправляет в Ozon и не меняет цены. Статусы рассчитаны только по локальным файлам.'));
+  const pilot=state.pilot;
+  if(!pilot){
+    container.append(el('p','loading','Загружаю проверку товаров с сервера…'));
+    container.append(button('Повторить загрузку',loadPilot));
+    return;
+  }
+  const stats=el('div','stats');
+  add(stats,stat('Товаров в пилоте',fmt(pilot.summary.total),'Бостон, Гранд, Ричи'),
+      stat('Проверены тексты',fmt(pilot.summary.textReady),'Это не разрешение публикации'),
+      stat('Можно публиковать',fmt(pilot.summary.publishReady),'Пока все заблокированы'),
+      stat('Тарифы Ozon','Не сверены','Оценки от '+(pilot.tariffsDate||'неизвестной даты')));
+  container.append(stats);
+  if(pilot.errors.length)container.append(note('Часть исходных файлов недоступна: '+pilot.errors.join('; ')));
+  const p=panel('Проверка 3 товаров');
+  p.append(table(['Товар / артикул','Цена сайта','Фото','Текст','Публикация','Действие'],pilot.cards.map(item=>[
+    productCell({id:item.id,name:item.name,category:'Ozon · пилот',photo:item.photo||'/media/'+item.id+'/01.jpg'}),
+    rub(item.sourceSitePrice),
+    String(item.photoCount),
+    badge(item.textReady?'Проверен':'Не готов',item.textReady?'ready':'blocked'),
+    badge('Заблокировано','danger'),
+    button('Проверить',()=>{state.selected=item.id;render();})
+  ])));
+  container.append(p);
+  const current=pilot.cards.find(x=>x.id===state.selected)||pilot.cards[0];
+  if(!current)return;
+  const detail=panel('Паспорт запуска · '+current.id+' · '+current.name);
+  detail.append(note('Артикул '+current.offerId+' — временный код черновика, не подтверждённое соответствие готовому изделию 1С.'));
+  const summary=el('div','list');
+  add(summary,
+      row('Цена с сайта',rub(current.sourceSitePrice),badge('Не Ozon','blocked')),
+      row('Цена из черновика',rub(current.proposedDraftPrice),badge('Не согласована','blocked')),
+      row('Вес изделия',current.netWeightKg?current.netWeightKg+' кг':'Нет',badge('Не вес упаковки','blocked')),
+      row('Габариты изделия',current.assembledDimensions||'Нет',badge('Не упаковка','blocked')),
+      row('Фото / инфографика',current.photoCount+' / '+current.infographicCount,badge(current.photoCount?'Есть':'Нет',current.photoCount?'ready':'danger')),
+      row('Соответствие 1С',current.confirmed1cSku||'Не установлено',badge('Блокер','danger')),
+      row('Себестоимость / актуальный остаток','Не подтверждены',badge('Блокер','danger')),
+      row('Категория, документы, способ отгрузки','Не подтверждены',badge('Блокер','danger'))
+  );
+  detail.append(summary);
+  if(current.candidates.length){
+    const c=el('div','detail');
+    add(c,el('h4','','Найденные кандидаты 1С — только для проверки'),el('p','',current.candidates.map(x=>x.code+' · '+x.name+'; '+(x.inCurrentSnapshot?'есть в снимке':'нет в выбранном снимке')).join('\n')));
+    detail.append(c);
+  }
+  if(current.warnings.length){
+    const w=el('div','detail');
+    add(w,el('h4','','Противоречия исходных характеристик'),el('p','',current.warnings.join('\n')));
+    detail.append(w);
+  }
+  const b=el('div','detail');
+  add(b,el('h4','','Что нужно закрыть до первой загрузки'),el('p','',current.blockers.map((x,i)=>(i+1)+'. '+x.label).join('\n')));
+  detail.append(b);
+  detail.append(el('div','callout','API-загрузка, публикация, изменение цен и остатков здесь намеренно недоступны. Сначала необходимо получить подтверждённые характеристики, документы и экономику.'));
+  container.append(detail);
 }
 function products(container){
   const d=state.data;
@@ -176,13 +238,13 @@ function settings(container){
 function render(){
   const v=state.view,m=$('main');
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('nav-active',b.dataset.view===v));
-  const names={overview:'Обзор',products:'Товары 1С',cards:'Карточки товаров',finance:'Экономика',ads:'Реклама',agents:'ИИ-агенты',settings:'Подключения'};
+  const names={overview:'Обзор',pilot:'Запуск Ozon',products:'Товары 1С',cards:'Карточки товаров',finance:'Экономика',ads:'Реклама',agents:'ИИ-агенты',settings:'Подключения'};
   $('view-title').textContent=names[v]||'Обзор';
   m.replaceChildren();
   if(!state.data){m.append(el('p','loading','Читаю данные…'));return;}
-  const views={overview,products,cards,finance,ads,agents,settings};
+  const views={overview,pilot:pilotView,products,cards,finance,ads,agents,settings};
   (views[v]||overview)(m);
 }
-document.querySelectorAll('#nav button').forEach(b=>b.addEventListener('click',()=>{state.view=b.dataset.view;state.query='';state.selected=null;render();}));
+document.querySelectorAll('#nav button').forEach(b=>b.addEventListener('click',()=>{state.view=b.dataset.view;state.query='';state.selected=null;render();if(state.view==='pilot')loadPilot();}));
 $('refresh').addEventListener('click',refresh);
 refresh();

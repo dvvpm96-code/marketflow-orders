@@ -58,7 +58,11 @@ if docker container inspect mp-manager >/dev/null 2>&1; then
   fail 'Контейнер mp-manager уже существует. Ничего не перезаписываю.'
 fi
 key_file=''
-if [[ -s "$secret_dir/ozon-api-key" ]]; then key_file='/run/secrets/ozon_key'; fi
+key_mount=()
+if [[ -s "$secret_dir/ozon-api-key" ]]; then
+  key_file='/run/secrets/ozon_key'
+  key_mount=(-v "$secret_dir/ozon-api-key:/run/secrets/ozon_key:ro")
+fi
 docker run -d --name mp-manager --restart unless-stopped \
   --network host --read-only --cap-drop ALL --security-opt no-new-privileges \
   --memory 256m --cpus 1 --pids-limit 100 \
@@ -75,7 +79,7 @@ docker run -d --name mp-manager --restart unless-stopped \
   -v "$project:/srv/mp:ro" \
   -v "$state_dir:/srv/state:rw" \
   -v "$secret_dir/password:/run/secrets/mp_password:ro" \
-  $(test -f "$secret_dir/ozon-api-key" && printf -- "--mount type=bind,src=%s/ozon-api-key,dst=/run/secrets/ozon_key,readonly" "$secret_dir") \
+  "${key_mount[@]}" \
   -w /app node:24-alpine node server.mjs >/dev/null
 for n in 1 2 3 4 5 6 7 8 9 10; do
   if curl -fsS --max-time 2 "$origin/healthz" >/dev/null; then break; fi

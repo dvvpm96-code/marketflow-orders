@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>МП Управляющий · Stolberi</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="logo"><span class="logo-mark">МП</span><span>Управляющий<small>STOLBERI · БИЗНЕС</small></span></div>
+    <div class="sidebar-label">РАБОЧЕЕ МЕСТО</div>
+    <nav id="nav">
+      <button class="nav-active" data-view="overview">◫ <span>Обзор</span></button>
+      <button data-view="products">▤ <span>Товары 1С</span></button>
+      <button data-view="cards">▣ <span>Карточки товаров</span></button>
+      <button data-view="finance">₽ <span>Экономика</span></button>
+      <button data-view="ads">◎ <span>Реклама</span></button>
+      <button data-view="agents">✧ <span>ИИ-агенты</span></button>
+      <button data-view="settings">⚙ <span>Подключения</span></button>
+    </nav>
+    <div class="sidebar-bottom"><div class="security">● Режим чтения и согласования</div><small>Изменение цен, публикация и реклама отключены.</small></div>
+  </aside>
+  <div class="workspace">
+    <header class="topbar"><div><span class="crumb">Stolberi / Маркетплейсы</span><h1 id="view-title">Обзор</h1></div><div class="top-actions"><span class="client">Ozon · кабинет <b>6241845</b></span><button id="refresh" class="button secondary">↻ Обновить</button></div></header>
+    <main id="main" aria-live="polite"><p class="loading">Загружаю снимок данных с сервера…</p></main>
+    <footer>МП Управляющий · Источник: 1С и stolberi.ru · Данные Ozon в реальном времени появятся только после проверки API.</footer>
+  </div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<script type="module" src="/app.js"></script>
+</body>
+</html>

@@ -9,12 +9,13 @@ const directory=path.dirname(fileURLToPath(import.meta.url));
 const root=path.resolve(process.env.MP_PROJECT_DIR || DEFAULT_PROJECT);
 const origin=process.env.MP_PUBLIC_ORIGIN || '';
 const port=Number(process.env.MP_PORT || 8777);
+const bindHost=process.env.MP_BIND_HOST || '127.0.0.1';
 const clientId=process.env.OZON_CLIENT_ID || '';
 const passwordFile=process.env.MP_ADMIN_PASSWORD_FILE || '';
 const keyFile=process.env.OZON_API_KEY_FILE || '';
 const sessionKey=randomBytes(32);
 const loginAttempts=new Map();
-if(!passwordFile || !/^https?:\/\/[^/]+$/.test(origin) || !Number.isInteger(port) || port<1024 || port>65535) throw new Error('Configure MP_ADMIN_PASSWORD_FILE, MP_PUBLIC_ORIGIN, MP_PORT first');
+if(!passwordFile || !/^https?:\/\/[^/]+$/.test(origin) || !Number.isInteger(port) || port<1024 || port>65535 || !/^(?:127\.0\.0\.1|100\.(?:\d{1,3}\.){2}\d{1,3})$/.test(bindHost)) throw new Error('Configure MP_ADMIN_PASSWORD_FILE, MP_PUBLIC_ORIGIN, MP_PORT, MP_BIND_HOST first');
 const cookieSecure=origin.startsWith('https://') ? '; Secure' : '';
 const headers={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','X-Frame-Options':'DENY','Referrer-Policy':'no-referrer','Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'"};
 function send(res,status,payload,extra={}) {
@@ -124,4 +125,4 @@ async function handler(req,res){
   }
 }
 export const server=http.createServer(handler);
-if(process.env.MP_SKIP_LISTEN!=='1')server.listen(port,'127.0.0.1',()=>console.log('MP Manager on 127.0.0.1:'+port));
+if(process.env.MP_SKIP_LISTEN!=='1')server.listen(port,bindHost,()=>console.log('MP Manager service started on configured interface'));

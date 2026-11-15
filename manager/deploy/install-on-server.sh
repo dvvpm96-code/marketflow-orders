@@ -90,23 +90,26 @@ code="$(curl -s -o /dev/null -w '%{http_code}' "$origin/api/snapshot")"
 [[ "$code" == 401 ]] || fail 'Незащищённый API: вместо 401 получен другой код.'
 echo "Установлено: $origin"
 echo 'Вход закрыт паролем, API без авторизации возвращает 401.'
-temp="$(mktemp -d)"
-trap 'rm -rf "$temp"' EXIT
-login="$(curl -s -o /dev/null -w '%{http_code}' -c "$temp/cookie" \
-  -H "Origin: $origin" -H 'Content-Type: application/x-www-form-urlencoded' \
-  --data-urlencode "password@$secret_dir/password" "$origin/login")"
-if [[ "$login" != 303 ]];then
-  echo 'Самопроверка входа не пройдена, API пока не проверено.'
-  exit 1
-fi
-curl -sS --max-time 20 -b "$temp/cookie" \
-  -H "Origin: $origin" -H 'Content-Type: application/json' \
-  -d '{"confirm":"read-only"}' "$origin/api/ozon/check" > "$temp/ozon.json"
-python3 - "$temp/ozon.json" <<'PY'
-import json,sys
-data=json.load(open(sys.argv[1]))
-if data.get('ok'):
-    print('Ozon API: УСПЕХ; товаров в первой странице:',data.get('countOnPage'))
-else:
-    print('Ozon API: ОШИБКА:',str(data.get('message') or data.get('error'))[:150])
+python3 - "$origin" "$secret_dir/password" <<'PY'
+import sys,json,urllib.request,urllib.parse,http.cookiejar,urllib.error
+origin,password_path=sys.argv[1:]
+with open(password_path,encoding='utf-8') as f:
+    password=f.read().strip()
+cookies=http.cookiejar.CookieJar()
+opener=urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cookies),urllib.request.HTTPRedirectHandler())
+try:
+    data=urllib.parse.urlencode({'password':password}).encode('utf-8')
+    req=urllib.request.Request(origin+'/login',data=data,headers={'Origin':origin,'Content-Type':'application/x-www-form-urlencoded'})
+    opener.open(req,timeout=8).read()
+    req=urllib.request.Request(origin+'/api/ozon/check',data=b'{"confirm":"read-only"}',headers={'Origin':origin,'Content-Type':'application/json'})
+    response=opener.open(req,timeout=20)
+    result=json.load(response)
+    if result.get('ok'):
+        print('OZON API: ПОДКЛЮЧЕНО; количество товаров первой страницы:',result.get('countOnPage'))
+    else:
+        print('OZON API: ответ с ошибкой:',str(result.get('message') or result.get('error'))[:160])
+except urllib.error.HTTPError as e:
+    print('OZON API: проверка не пройдена, HTTP',e.code)
+except Exception as e:
+    print('OZON API: проверка не пройдена:',type(e).__name__)
 PY
